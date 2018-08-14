@@ -1,0 +1,4 @@
+To Do:
+
+- Saving/logging stuff; see Bhairav's suggestions
+- VAE; florian; commit this shit

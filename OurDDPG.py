@@ -10,18 +10,36 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Re-tuned version of Deep Deterministic Policy Gradients (DDPG)
 # Paper: https://arxiv.org/abs/1509.02971
 
+class ConvModule(nn.Module):
+	def __init__(self):
+		super(ConvModule, self).__init__()
+
+		self.conv1 = nn.Conv2d(3, 16, kernel_size=(2,2), stride=2)
+		self.conv2 = nn.Conv2d(16, 16, kernel_size=(2,2), stride=2)
+		self.conv3 = nn.Conv2d(16, 16, kernel_size=(2,2), stride=2)
+		self.conv4 = nn.Conv2d(16, 16, kernel_size=(2,2), stride=2)
+
+
+	def forward(self, x):
+		x = F.relu(self.conv1(x))
+		x = F.relu(self.conv2(x))
+		x = F.relu(self.conv3(x))
+		x = F.relu(self.conv4(x))
+		x = x.view((x.size(0), -1))
+		return x
+
 
 class Actor(nn.Module):
 	def __init__(self, state_dim, action_dim, max_action):
 		super(Actor, self).__init__()
 
-		self.l1 = nn.Linear(state_dim, 400)
-		self.l2 = nn.Linear(400, 300)
-		self.l3 = nn.Linear(300, action_dim)
+		self.l1 = nn.Linear(state_dim, 512)
+		self.l2 = nn.Linear(512, 512)
+		self.l3 = nn.Linear(512, action_dim)
 		
 		self.max_action = max_action
 
-	
+
 	def forward(self, x):
 		x = F.relu(self.l1(x))
 		x = F.relu(self.l2(x))
@@ -33,9 +51,9 @@ class Critic(nn.Module):
 	def __init__(self, state_dim, action_dim):
 		super(Critic, self).__init__()
 
-		self.l1 = nn.Linear(state_dim + action_dim, 400)
-		self.l2 = nn.Linear(400, 300)
-		self.l3 = nn.Linear(300, 1)
+		self.l1 = nn.Linear(state_dim + action_dim, 512)
+		self.l2 = nn.Linear(512, 512)
+		self.l3 = nn.Linear(512, 1)
 
 
 	def forward(self, x, u):
@@ -47,19 +65,28 @@ class Critic(nn.Module):
 
 class DDPG(object):
 	def __init__(self, state_dim, action_dim, max_action):
+		if len(state_dim) > 1:
+			# So as to implement a shared conv layer for actor and critic
+			self.conv_module = ConvModule().to(device)
+			state_dim = 16*5*5
+
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target.load_state_dict(self.actor.state_dict())
-		self.actor_optimizer = torch.optim.Adam(self.actor.parameters())
+		self.actor_optimizer = torch.optim.Adam(list(self.actor.parameters()) + list(self.conv_module.parameters()))
 
 		self.critic = Critic(state_dim, action_dim).to(device)
 		self.critic_target = Critic(state_dim, action_dim).to(device)
 		self.critic_target.load_state_dict(self.critic.state_dict())
-		self.critic_optimizer = torch.optim.Adam(self.critic.parameters())		
+		self.critic_optimizer = torch.optim.Adam(list(self.critic.parameters()) + list(self.conv_module.parameters()))
 
 
 	def select_action(self, state):
-		state = torch.FloatTensor(state.reshape(1, -1)).to(device)
+		if len(state.shape) >= 3:
+			state = torch.FloatTensor(state.reshape(1, *state.shape)).to(device)
+			state = self.conv_module(state)
+		else:
+			state = torch.FloatTensor(state.reshape(1, -1)).to(device)
 		return self.actor(state).cpu().data.numpy().flatten()
 
 
@@ -75,6 +102,11 @@ class DDPG(object):
 			done = torch.FloatTensor(1 - d).to(device)
 			reward = torch.FloatTensor(r).to(device)
 
+			# Passing states through conv layers
+			if len(state.shape) >= 3:
+				state = self.conv_module(state)
+				next_state = self.conv_module(next_state)
+
 			# Compute the target Q value
 			target_Q = self.critic_target(next_state, self.actor_target(next_state))
 			target_Q = reward + (done * discount * target_Q).detach()
@@ -87,7 +119,7 @@ class DDPG(object):
 
 			# Optimize the critic
 			self.critic_optimizer.zero_grad()
-			critic_loss.backward()
+			critic_loss.backward(retain_graph=True)
 			self.critic_optimizer.step()
 
 			# Compute actor loss

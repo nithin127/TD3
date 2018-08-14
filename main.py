@@ -9,11 +9,14 @@ import TD3
 import OurDDPG
 import DDPG
 
+# Install https://github.com/duckietown/gym-duckietown/ before you start
+import gym_duckietown
+from gym_duckietown.wrappers import PyTorchObsWrapperResize
 
 # Runs policy for X episodes and returns average reward
 def evaluate_policy(policy, eval_episodes=10):
 	avg_reward = 0.
-	for _ in xrange(eval_episodes):
+	for _ in range(eval_episodes):
 		obs = env.reset()
 		done = False
 		while not done:
@@ -23,17 +26,17 @@ def evaluate_policy(policy, eval_episodes=10):
 
 	avg_reward /= eval_episodes
 
-	print "---------------------------------------"
-	print "Evaluation over %d episodes: %f" % (eval_episodes, avg_reward)
-	print "---------------------------------------"
+	print( "---------------------------------------")
+	print( "Evaluation over %d episodes: %f" % (eval_episodes, avg_reward))
+	print( "---------------------------------------")
 	return avg_reward
 
 
 if __name__ == "__main__":
 	
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--policy_name", default="TD3")					# Policy name
-	parser.add_argument("--env_name", default="HalfCheetah-v1")			# OpenAI gym environment name
+	parser.add_argument("--policy_name", default="OurDDPG")				# Policy name
+	parser.add_argument("--env_name", default="Duckietown-small_loop-v0")# OpenAI gym environment name
 	parser.add_argument("--seed", default=0, type=int)					# Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--start_timesteps", default=1e4, type=int)		# How many time steps purely random policy is run for
 	parser.add_argument("--eval_freq", default=5e3, type=float)			# How often (time steps) we evaluate
@@ -49,24 +52,24 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 
 	file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
-	print "---------------------------------------"
-	print "Settings: %s" % (file_name)
-	print "---------------------------------------"
+	print( "---------------------------------------")
+	print( "Settings: %s" % (file_name))
+	print( "---------------------------------------")
 
 	if not os.path.exists("./results"):
 		os.makedirs("./results")
 	if args.save_models and not os.path.exists("./pytorch_models"):
 		os.makedirs("./pytorch_models")
 
-	env = gym.make(args.env_name)
+	env = PyTorchObsWrapperResize(gym.make(args.env_name))
 
 	# Set seeds
 	env.seed(args.seed)
 	torch.manual_seed(args.seed)
 	np.random.seed(args.seed)
 	
-	state_dim = env.observation_space.shape[0]
-	action_dim = env.action_space.shape[0] 
+	state_dim = env.observation_space.shape #Assuming image as an input; otherwise .shape[0] would be appropriate
+	action_dim = env.action_space.shape[0]
 	max_action = int(env.action_space.high[0])
 
 	# Initialize policy
@@ -89,7 +92,7 @@ if __name__ == "__main__":
 		if done: 
 
 			if total_timesteps != 0: 
-				print("Total T: %d Episode Num: %d Episode T: %d Reward: %f") % (total_timesteps, episode_num, episode_timesteps, episode_reward)
+				print("Total T: %d Episode Num: %d Episode T: %d Reward: %f" % (total_timesteps, episode_num, episode_timesteps, episode_reward))
 				if args.policy_name == "TD3":
 					policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq)
 				else: 
@@ -120,7 +123,8 @@ if __name__ == "__main__":
 
 		# Perform action
 		new_obs, reward, done, _ = env.step(action) 
-		done_bool = 0 if episode_timesteps + 1 == env._max_episode_steps else float(done)
+		#done_bool = 0 if episode_timesteps + 1 == env._max_episode_steps else float(done)
+		done_bool = float(done)
 		episode_reward += reward
 
 		# Store data in replay buffer
