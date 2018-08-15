@@ -11,16 +11,24 @@ import DDPG
 
 # Install https://github.com/duckietown/gym-duckietown/ before you start
 import gym_duckietown
-from gym_duckietown.wrappers import PyTorchObsWrapperResize
+from gym_duckietown.wrappers import ResizeWrapper, PyTorchObsWrapper, RewardWrapper
+
+# Logging facilities
+from logger import Logger
+
 
 # Runs policy for X episodes and returns average reward
-def evaluate_policy(policy, eval_episodes=10):
+def evaluate_policy(policy, eval_episodes=10, avg_len=3):
 	avg_reward = 0.
+	actions_test = np.zeros((avg_len, env.action_space.shape[0]))
 	for _ in range(eval_episodes):
 		obs = env.reset()
 		done = False
 		while not done:
 			action = policy.select_action(np.array(obs))
+			actions_test[1:avg_len] = actions_test[:avg_len - 1]
+			actions_test[0] = action
+			action = np.average(actions_test, 0)
 			obs, reward, done, _ = env.step(action)
 			avg_reward += reward
 
@@ -33,7 +41,7 @@ def evaluate_policy(policy, eval_episodes=10):
 
 
 if __name__ == "__main__":
-	
+
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--policy_name", default="OurDDPG")				# Policy name
 	parser.add_argument("--env_name", default="Duckietown-small_loop-v0")# OpenAI gym environment name
@@ -41,6 +49,7 @@ if __name__ == "__main__":
 	parser.add_argument("--start_timesteps", default=1e4, type=int)		# How many time steps purely random policy is run for
 	parser.add_argument("--eval_freq", default=5e3, type=float)			# How often (time steps) we evaluate
 	parser.add_argument("--max_timesteps", default=1e6, type=float)		# Max time steps to run environment for
+	parser.add_argument("--avg-length", default=3, type=int)			# Actions are averaged over the following timesteps
 	parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
 	parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
 	parser.add_argument("--batch_size", default=100, type=int)			# Batch size for both actor and critic
@@ -60,14 +69,16 @@ if __name__ == "__main__":
 		os.makedirs("./results")
 	if args.save_models and not os.path.exists("./pytorch_models"):
 		os.makedirs("./pytorch_models")
+	logger_dir = os.path.join("./results", file_name)
+	logger = Logger(logger_dir)
 
-	env = PyTorchObsWrapperResize(gym.make(args.env_name))
+	env = RewardWrapper(ResizeWrapper(PyTorchObsWrapper(gym.make(args.env_name))))
 
 	# Set seeds
 	env.seed(args.seed)
 	torch.manual_seed(args.seed)
 	np.random.seed(args.seed)
-	
+
 	state_dim = env.observation_space.shape #Assuming image as an input; otherwise .shape[0] would be appropriate
 	action_dim = env.action_space.shape[0]
 	max_action = int(env.action_space.high[0])
@@ -78,9 +89,9 @@ if __name__ == "__main__":
 	elif args.policy_name == "DDPG": policy = DDPG.DDPG(state_dim, action_dim, max_action)
 
 	replay_buffer = utils.ReplayBuffer()
-	
+
 	# Evaluate untrained policy
-	evaluations = [evaluate_policy(policy)] 
+	evaluations = [evaluate_policy(policy, avg_len = args.avg_length)] 
 
 	total_timesteps = 0
 	timesteps_since_eval = 0
@@ -88,7 +99,7 @@ if __name__ == "__main__":
 	done = True 
 
 	while total_timesteps < args.max_timesteps:
-		
+
 		if done: 
 
 			if total_timesteps != 0: 
@@ -97,27 +108,31 @@ if __name__ == "__main__":
 					policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq)
 				else: 
 					policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau)
-			
+
 			# Evaluate episode
 			if timesteps_since_eval >= args.eval_freq:
 				timesteps_since_eval %= args.eval_freq
-				evaluations.append(evaluate_policy(policy))
+				evaluations.append(evaluate_policy(policy, avg_len = args.avg_length))
 				
 				if args.save_models: policy.save(file_name, directory="./pytorch_models")
 				np.save("./results/%s" % (file_name), evaluations) 
-			
+
 			# Reset environment
 			obs = env.reset()
 			done = False
 			episode_reward = 0
 			episode_timesteps = 0
 			episode_num += 1 
-		
+
+		actions_train = np.zeros((args.avg_length, action_dim))
 		# Select action randomly or according to policy
 		if total_timesteps < args.start_timesteps:
 			action = env.action_space.sample()
 		else:
 			action = policy.select_action(np.array(obs))
+			actions_train[1:args.avg_length] = actions_train[:args.avg_length - 1]
+			actions_train[0] = action
+			action = np.average(actions_train, 0)
 			if args.expl_noise != 0: 
 				action = (action + np.random.normal(0, args.expl_noise, size=env.action_space.shape[0])).clip(env.action_space.low, env.action_space.high)
 
@@ -135,8 +150,8 @@ if __name__ == "__main__":
 		episode_timesteps += 1
 		total_timesteps += 1
 		timesteps_since_eval += 1
-		
+
 	# Final evaluation 
-	evaluations.append(evaluate_policy(policy))
+	evaluations.append(evaluate_policy(policy, avg_len = args.avg_length))
 	if args.save_models: policy.save("%s" % (file_name), directory="./pytorch_models")
 	np.save("./results/%s" % (file_name), evaluations)  
