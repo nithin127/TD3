@@ -117,6 +117,9 @@ if __name__ == "__main__":
 					actor_loss, critic_loss = policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq, logger)
 				else: 
 					actor_loss, critic_loss = policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, logger)
+				logger.log_scalar_rl("actor_loss", actor_loss, [episode_num, total_timesteps, num_updates])
+				logger.log_scalar_rl("critic_loss", critic_loss, [episode_num, total_timesteps, num_updates])
+
 
 			# Evaluate episode
 			if timesteps_since_eval >= args.eval_freq:
@@ -153,10 +156,6 @@ if __name__ == "__main__":
 			if args.expl_noise != 0: 
 				action = (action + np.random.normal(0, args.expl_noise, size=env.action_space.shape[0])).clip(env.action_space.low, env.action_space.high)
 
-
-		# Log stuff
-		logger.log_scalar_rl("actor_loss", actor_loss, [episode_num, total_timesteps, num_updates])
-		logger.log_scalar_rl("critic_loss", critic_loss, [episode_num, total_timesteps, num_updates])
 
 		# Perform action
 		new_obs, reward, done, _ = env.step(action) 
