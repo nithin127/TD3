@@ -1,29 +1,28 @@
 To Do:
 
-- Saving/logging stuff; see Bhairav's suggestions
+- Saving/logging stuff;
 
 	Scalars:
-	Training loss (Actor and Critic)
 	Training Reward (Avg)
 	Training Action (Norm)
 
 	Same with evaluation
+	Test loss (Actor and Critic)
+	Test Action (Norm)
 
 	Images:
 	Start Obs
 	end Obs
 
 	Histograms
-	Histogram of Action
+	Histogram of Action; (at every x timesteps)
 	People also do histograms of gradients / weights but I don't really.
 
 
 - VAE; 
 
-- smooth action; average over 2-3 timesteps... averaged action
-
 - multiple frames of observation [4 frames stacked]
 
 - Remove the horizon!
 
-- constant forward speed
+- constant forward speed; check the actions it is taking

@@ -48,10 +48,10 @@ if __name__ == "__main__":
 	parser.add_argument("--seed", default=0, type=int)					# Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--start_timesteps", default=1e4, type=int)		# How many time steps purely random policy is run for
 	parser.add_argument("--eval_freq", default=5e3, type=float)			# How often (time steps) we evaluate
-	parser.add_argument("--max_timesteps", default=1e6, type=float)		# Max time steps to run environment for
+	parser.add_argument("--max_timesteps", default=2e6, type=float)		# Max time steps to run environment for
 	parser.add_argument("--avg-length", default=3, type=int)			# Actions are averaged over the following timesteps
 	parser.add_argument("--obs-stack", default=3, type=int)				# Number of observations (current + previous) to be stacked, when given as input
-	parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
+	parser.add_argument("--dont-save-model", action="store_true")			# Whether or not models are saved
 	parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
 	parser.add_argument("--batch_size", default=100, type=int)			# Batch size for both actor and critic
 	parser.add_argument("--discount", default=0.99, type=float)			# Discount factor
@@ -60,6 +60,8 @@ if __name__ == "__main__":
 	parser.add_argument("--noise_clip", default=0.5, type=float)		# Range to clip target policy noise
 	parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
 	args = parser.parse_args()
+	# Rephrasing args
+	args.save_models = not args.dont_save_model
 
 	file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
 	print( "---------------------------------------")
@@ -92,12 +94,17 @@ if __name__ == "__main__":
 	replay_buffer = utils.ReplayBuffer()
 
 	# Evaluate untrained policy
-	evaluations = [evaluate_policy(policy, avg_len = args.avg_length)] 
-
+	test_reward = evaluate_policy(policy, avg_len = args.avg_length)
+	logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
+	evaluations[test_reward]
+	
 	total_timesteps = 0
 	timesteps_since_eval = 0
 	episode_num = 0
-	done = True 
+	num_updates = 0
+	done = True
+	rewards = []
+	actions = []
 
 	while total_timesteps < args.max_timesteps:
 
@@ -106,17 +113,22 @@ if __name__ == "__main__":
 			if total_timesteps != 0: 
 				print("Total T: %d Episode Num: %d Episode T: %d Reward: %f" % (total_timesteps, episode_num, episode_timesteps, episode_reward))
 				if args.policy_name == "TD3":
-					policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq)
+					actor_loss, critic_loss = policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq, logger)
 				else: 
-					policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau)
+					actor_loss, critic_loss = policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, logger)
 
 			# Evaluate episode
 			if timesteps_since_eval >= args.eval_freq:
 				timesteps_since_eval %= args.eval_freq
-				evaluations.append(evaluate_policy(policy, avg_len = args.avg_length))
-				
+				test_reward = evaluate_policy(policy, avg_len = args.avg_length)
+				evaluations.append(test_reward)
+				# Log rewards, actions 
+				logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
+				logger.log_histogram()
+
+	
 				if args.save_models: policy.save(file_name, directory="./pytorch_models")
-				np.save("./results/%s" % (file_name), evaluations) 
+				np.save("./results/%s/evaluations" % (file_name), evaluations) 
 
 			# Reset environment
 			obs = env.reset()
@@ -124,6 +136,7 @@ if __name__ == "__main__":
 			episode_reward = 0
 			episode_timesteps = 0
 			episode_num += 1 
+			num_updates += episode_timesteps
 
 		actions_train = np.zeros((args.avg_length, action_dim))
 		# Select action randomly or according to policy
@@ -136,6 +149,11 @@ if __name__ == "__main__":
 			action = np.average(actions_train, 0)
 			if args.expl_noise != 0: 
 				action = (action + np.random.normal(0, args.expl_noise, size=env.action_space.shape[0])).clip(env.action_space.low, env.action_space.high)
+
+
+		# Log stuff
+		logger.log_scalar_rl("actor_loss", actor_loss, [episode_num, total_timesteps, num_updates])
+		logger.log_scalar_rl("critic_loss", critic_loss, [episode_num, total_timesteps, num_updates])
 
 		# Perform action
 		new_obs, reward, done, _ = env.step(action) 
@@ -153,6 +171,8 @@ if __name__ == "__main__":
 		timesteps_since_eval += 1
 
 	# Final evaluation 
-	evaluations.append(evaluate_policy(policy, avg_len = args.avg_length))
+	test_reward = evaluate_policy(policy, avg_len = args.avg_length)
+	logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
+	evaluations.append(test_reward)
 	if args.save_models: policy.save("%s" % (file_name), directory="./pytorch_models")
-	np.save("./results/%s" % (file_name), evaluations)  
+	np.save("./results/%s/evaluations" % (file_name), evaluations)

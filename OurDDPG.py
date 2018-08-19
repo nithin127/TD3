@@ -92,6 +92,9 @@ class DDPG(object):
 
 	def train(self, replay_buffer, iterations, batch_size=100, discount=0.99, tau=0.005):
 
+		actor_losses = []
+		critic_losses = []
+
 		for it in range(iterations):
 
 			# Sample replay buffer 
@@ -116,6 +119,7 @@ class DDPG(object):
 
 			# Compute critic loss
 			critic_loss = F.mse_loss(current_Q, target_Q)
+			critic_losses.append(critic_loss)
 
 			# Optimize the critic
 			self.critic_optimizer.zero_grad()
@@ -124,6 +128,7 @@ class DDPG(object):
 
 			# Compute actor loss
 			actor_loss = -self.critic(state, self.actor(state)).mean()
+			actor_losses.append(actor_loss)
 			
 			# Optimize the actor 
 			self.actor_optimizer.zero_grad()
@@ -136,6 +141,8 @@ class DDPG(object):
 
 			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
 				target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+
+		return sum(actor_losses)/iterations, sum(critic_losses)/iterations
 
 
 	def save(self, filename, directory):

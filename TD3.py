@@ -88,6 +88,9 @@ class TD3(object):
 
 	def train(self, replay_buffer, iterations, batch_size=100, discount=0.99, tau=0.005, policy_noise=0.2, noise_clip=0.5, policy_freq=2):
 
+		actor_losses = []
+		critic_losses = []
+
 		for it in range(iterations):
 
 			# Sample replay buffer 
@@ -114,6 +117,7 @@ class TD3(object):
 
 			# Compute critic loss
 			critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q) 
+			critic_losses.append(critic_loss)
 
 			# Optimize the critic
 			self.critic_optimizer.zero_grad()
@@ -125,6 +129,7 @@ class TD3(object):
 
 				# Compute actor loss
 				actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
+				actor_losses.append(actor_loss)
 				
 				# Optimize the actor 
 				self.actor_optimizer.zero_grad()
@@ -137,6 +142,8 @@ class TD3(object):
 
 				for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
 					target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+
+		return sum(actor_losses)/len(actor_losses), sum(critic_losses)/iterations
 
 
 	def save(self, filename, directory):
