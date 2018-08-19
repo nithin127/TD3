@@ -114,9 +114,9 @@ if __name__ == "__main__":
 				print("Total T: %d Episode Num: %d Episode T: %d Reward: %f" % (total_timesteps, episode_num, episode_timesteps, episode_reward))
 				num_updates += episode_timesteps
 				if args.policy_name == "TD3":
-					actor_loss, critic_loss = policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq, logger)
+					actor_loss, critic_loss = policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq)
 				else: 
-					actor_loss, critic_loss = policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, logger)
+					actor_loss, critic_loss = policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau)
 				logger.log_scalar_rl("actor_loss", actor_loss, [episode_num, total_timesteps, num_updates])
 				logger.log_scalar_rl("critic_loss", critic_loss, [episode_num, total_timesteps, num_updates])
 
