@@ -139,31 +139,6 @@ class Logger(object):
         tlist[0].append(val)
         tlist[1].append([tr.episodes_done, tr.global_steps_done, tr.iterations_done])
 
-    def track_a2c_training_metrics(self, episode_dones, rewards):
-        for env_id, episode_done in enumerate(episode_dones):
-            self._training_metrics["episode_lens"][env_id] +=1.0
-            self._training_metrics["rewards"][env_id] += rewards[env_id]
-
-            if episode_done:
-                self._tr.episodes_done += 1
-                if env_id==0:
-                      self.log_a2c_training_metrics()
-                self._training_metrics["episode_lens"][env_id] = 0.0
-                self._training_metrics["rewards"][env_id] = 0.0
-
-    def reset_a2c_training_metrics(self, num_envs, tr, avglen):
-        self._tr = tr
-        self._avglen = avglen
-        self._training_metrics = {}
-        for tag in ["episode_lens", "rewards"]:
-            self._training_metrics[tag] = [0]*num_envs
-
-    def log_a2c_training_metrics(self):
-        self._append_to(self._tr.train_reward, self._tr, self._training_metrics["rewards"][0])
-        self._append_to(self._tr.train_episode_len, self._tr, self._training_metrics["episode_lens"][0])
-
-        self.log_scalar_rl("train_rewards", self._tr.train_reward[0], self._avglen, [self._tr.episodes_done, self._tr.global_steps_done, self._tr.iterations_done])
-        self.log_scalar_rl("train_episode_len", self._tr.train_episode_len[0], self._avglen, [self._tr.episodes_done, self._tr.global_steps_done, self._tr.iterations_done])
 
     def save(self, dir_name):
         if self._backup:

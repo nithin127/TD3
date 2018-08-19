@@ -2,10 +2,6 @@ To Do:
 
 - Saving/logging stuff;
 
-	Scalars:
-	Training Reward (Avg)
-	Training Action (Norm)
-
 	Same with evaluation
 	Test loss (Actor and Critic)
 	Test Action (Norm)
@@ -13,10 +9,6 @@ To Do:
 	Images:
 	Start Obs
 	end Obs
-
-	Histograms
-	Histogram of Action; (at every x timesteps)
-	People also do histograms of gradients / weights but I don't really.
 
 
 - VAE; 

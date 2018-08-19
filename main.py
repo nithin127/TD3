@@ -93,11 +93,6 @@ if __name__ == "__main__":
 
 	replay_buffer = utils.ReplayBuffer()
 
-	# Evaluate untrained policy
-	test_reward = evaluate_policy(policy, avg_len = args.avg_length)
-	logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
-	evaluations[test_reward]
-	
 	total_timesteps = 0
 	timesteps_since_eval = 0
 	episode_num = 0
@@ -106,12 +101,18 @@ if __name__ == "__main__":
 	rewards = []
 	actions = []
 
+	# Evaluate untrained policy
+	test_reward = evaluate_policy(policy, avg_len = args.avg_length)
+	logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
+	evaluations[test_reward]
+	
 	while total_timesteps < args.max_timesteps:
 
 		if done: 
 
 			if total_timesteps != 0: 
 				print("Total T: %d Episode Num: %d Episode T: %d Reward: %f" % (total_timesteps, episode_num, episode_timesteps, episode_reward))
+				num_updates += episode_timesteps
 				if args.policy_name == "TD3":
 					actor_loss, critic_loss = policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq, logger)
 				else: 
@@ -124,7 +125,10 @@ if __name__ == "__main__":
 				evaluations.append(test_reward)
 				# Log rewards, actions 
 				logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
-				logger.log_histogram()
+				logger.log_histogram("train_actions_hist", actions, num_updates)
+				logger.log_scalar_rl("train_avg_reward", sum(rewards)/len(rewards), [episode_num, total_timesteps, num_updates])
+				actions = []
+				rewards = []
 
 	
 				if args.save_models: policy.save(file_name, directory="./pytorch_models")
@@ -136,7 +140,6 @@ if __name__ == "__main__":
 			episode_reward = 0
 			episode_timesteps = 0
 			episode_num += 1 
-			num_updates += episode_timesteps
 
 		actions_train = np.zeros((args.avg_length, action_dim))
 		# Select action randomly or according to policy
@@ -157,6 +160,8 @@ if __name__ == "__main__":
 
 		# Perform action
 		new_obs, reward, done, _ = env.step(action) 
+		actions.append(action)
+		rewards.append(reward)
 		#done_bool = 0 if episode_timesteps + 1 == env._max_episode_steps else float(done)
 		done_bool = float(done)
 		episode_reward += reward
