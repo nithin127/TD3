@@ -104,7 +104,7 @@ if __name__ == "__main__":
 	# Evaluate untrained policy
 	test_reward = evaluate_policy(policy, avg_len = args.avg_length)
 	logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
-	evaluations[test_reward]
+	evaluations = [test_reward]
 	
 	while total_timesteps < args.max_timesteps:
 

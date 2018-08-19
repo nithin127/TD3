@@ -1,5 +1,9 @@
 To Do:
 
+- multiple frames of observation [4 frames stacked]
+
+- resume training; args
+
 - Saving/logging stuff;
 
 	Same with evaluation
@@ -10,10 +14,7 @@ To Do:
 	Start Obs
 	end Obs
 
-
 - VAE; 
-
-- multiple frames of observation [4 frames stacked]
 
 - Remove the horizon!
 
