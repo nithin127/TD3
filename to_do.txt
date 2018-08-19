@@ -18,14 +18,12 @@ To Do:
 	People also do histograms of gradients / weights but I don't really.
 
 
-- Commit this to gym-duckietown-agent
-
 - VAE; 
 
 - smooth action; average over 2-3 timesteps... averaged action
 
 - multiple frames of observation [4 frames stacked]
 
-- Black and white image; subtract out the average
-
 - Remove the horizon!
+
+- constant forward speed

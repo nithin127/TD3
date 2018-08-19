@@ -11,7 +11,7 @@ import DDPG
 
 # Install https://github.com/duckietown/gym-duckietown/ before you start
 import gym_duckietown
-from gym_duckietown.wrappers import ResizeWrapper, PyTorchObsWrapper, RewardWrapper
+from wrapper import CustomWrap
 
 # Logging facilities
 from logger import Logger
@@ -50,6 +50,7 @@ if __name__ == "__main__":
 	parser.add_argument("--eval_freq", default=5e3, type=float)			# How often (time steps) we evaluate
 	parser.add_argument("--max_timesteps", default=1e6, type=float)		# Max time steps to run environment for
 	parser.add_argument("--avg-length", default=3, type=int)			# Actions are averaged over the following timesteps
+	parser.add_argument("--obs-stack", default=3, type=int)				# Number of observations (current + previous) to be stacked, when given as input
 	parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
 	parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
 	parser.add_argument("--batch_size", default=100, type=int)			# Batch size for both actor and critic
@@ -72,7 +73,7 @@ if __name__ == "__main__":
 	logger_dir = os.path.join("./results", file_name)
 	logger = Logger(logger_dir)
 
-	env = RewardWrapper(ResizeWrapper(PyTorchObsWrapper(gym.make(args.env_name))))
+	env = CustomWrap(gym.make(args.env_name))
 
 	# Set seeds
 	env.seed(args.seed)
