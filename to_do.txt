@@ -1,10 +1,18 @@
 To Do:
 
+- check if GPU is being used properly
+
+- PPO!
+
+- sbatch run/ cluster operations
+	Try to run the same in a random cluster: NGC
+	Setup ssh; send/receive files in random cluster
+
 - multiple frames of observation [4 frames stacked]
 
 - resume training; args
 
-- Saving/logging stuff;
+- logging stuff;
 
 	Same with evaluation
 	Test loss (Actor and Critic)

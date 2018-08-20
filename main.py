@@ -20,6 +20,7 @@ from logger import Logger
 # Runs policy for X episodes and returns average reward
 def evaluate_policy(policy, eval_episodes=10, avg_len=3):
 	avg_reward = 0.
+	avg_episode_length = 0
 	actions_test = np.zeros((avg_len, env.action_space.shape[0]))
 	for _ in range(eval_episodes):
 		obs = env.reset()
@@ -31,13 +32,16 @@ def evaluate_policy(policy, eval_episodes=10, avg_len=3):
 			action = np.average(actions_test, 0)
 			obs, reward, done, _ = env.step(action)
 			avg_reward += reward
+			avg_episode_length += 1
 
 	avg_reward /= eval_episodes
+	avg_episode_length /= eval_episodes
 
 	print( "---------------------------------------")
 	print( "Evaluation over %d episodes: %f" % (eval_episodes, avg_reward))
+	print( "\tAverage Episode Length: %f" % (avg_episode_length))
 	print( "---------------------------------------")
-	return avg_reward
+	return avg_reward, avg_episode_length
 
 
 if __name__ == "__main__":
@@ -102,8 +106,9 @@ if __name__ == "__main__":
 	actions = []
 
 	# Evaluate untrained policy
-	test_reward = evaluate_policy(policy, avg_len = args.avg_length)
+	test_reward, test_episode_length = evaluate_policy(policy, avg_len = args.avg_length)
 	logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
+	logger.log_scalar_rl("test_episode_length", test_episode_length, [episode_num, total_timesteps, num_updates])
 	evaluations = [test_reward]
 	
 	while total_timesteps < args.max_timesteps:
@@ -124,11 +129,12 @@ if __name__ == "__main__":
 			# Evaluate episode
 			if timesteps_since_eval >= args.eval_freq:
 				timesteps_since_eval %= args.eval_freq
-				test_reward = evaluate_policy(policy, avg_len = args.avg_length)
+				test_reward, test_episode_length = evaluate_policy(policy, avg_len = args.avg_length)
 				evaluations.append(test_reward)
 				# Log rewards, actions 
 				logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
-				logger.log_histogram("train_actions_hist", actions, num_updates)
+				logger.log_scalar_rl("test_episode_length", test_episode_length, [episode_num, total_timesteps, num_updates])
+				logger.log_histogram("train_actions_hist", np.array(actions), num_updates)
 				logger.log_scalar_rl("train_avg_reward", sum(rewards)/len(rewards), [episode_num, total_timesteps, num_updates])
 				actions = []
 				rewards = []
@@ -175,8 +181,9 @@ if __name__ == "__main__":
 		timesteps_since_eval += 1
 
 	# Final evaluation 
-	test_reward = evaluate_policy(policy, avg_len = args.avg_length)
+	test_reward, test_episode_length = evaluate_policy(policy, avg_len = args.avg_length)
 	logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
+	logger.log_scalar_rl("test_episode_length", test_episode_length, [episode_num, total_timesteps, num_updates])
 	evaluations.append(test_reward)
 	if args.save_models: policy.save("%s" % (file_name), directory="./pytorch_models")
 	np.save("./results/%s/evaluations" % (file_name), evaluations)
