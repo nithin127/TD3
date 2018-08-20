@@ -55,7 +55,7 @@ if __name__ == "__main__":
 	parser.add_argument("--max_timesteps", default=2e6, type=float)		# Max time steps to run environment for
 	parser.add_argument("--avg-length", default=3, type=int)			# Actions are averaged over the following timesteps
 	parser.add_argument("--obs-stack", default=3, type=int)				# Number of observations (current + previous) to be stacked, when given as input
-	parser.add_argument("--dont-save-model", action="store_true")			# Whether or not models are saved
+	parser.add_argument("--dont-save-model", action="store_true")		# Whether or not models are saved
 	parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
 	parser.add_argument("--batch_size", default=100, type=int)			# Batch size for both actor and critic
 	parser.add_argument("--discount", default=0.99, type=float)			# Discount factor
@@ -63,6 +63,7 @@ if __name__ == "__main__":
 	parser.add_argument("--policy_noise", default=0.2, type=float)		# Noise added to target policy during critic update
 	parser.add_argument("--noise_clip", default=0.5, type=float)		# Range to clip target policy noise
 	parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
+	parser.add_argument("--resume-training", action="store_true")		# Existing path directory; to resume training
 	args = parser.parse_args()
 	# Rephrasing args
 	args.save_models = not args.dont_save_model
@@ -95,6 +96,9 @@ if __name__ == "__main__":
 	elif args.policy_name == "OurDDPG": policy = OurDDPG.DDPG(state_dim, action_dim, max_action)
 	elif args.policy_name == "DDPG": policy = DDPG.DDPG(state_dim, action_dim, max_action)
 
+	if args.resume_training:
+		policy.load(file_name, directory="./pytorch_models")
+
 	replay_buffer = utils.ReplayBuffer()
 
 	total_timesteps = 0
@@ -104,7 +108,7 @@ if __name__ == "__main__":
 	done = True
 	rewards = []
 	actions = []
-
+	
 	# Evaluate untrained policy
 	test_reward, test_episode_length = evaluate_policy(policy, avg_len = args.avg_length)
 	logger.log_scalar_rl("test_reward", test_reward, [episode_num, total_timesteps, num_updates])
@@ -136,6 +140,7 @@ if __name__ == "__main__":
 				logger.log_scalar_rl("test_episode_length", test_episode_length, [episode_num, total_timesteps, num_updates])
 				logger.log_histogram("train_actions_hist", np.array(actions), num_updates)
 				logger.log_scalar_rl("train_avg_reward", sum(rewards)/len(rewards), [episode_num, total_timesteps, num_updates])
+				logger.log_scalar_rl("train_episode_timesteps", episode_timesteps, [episode_num, total_timesteps, num_updates])
 				actions = []
 				rewards = []
 
