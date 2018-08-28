@@ -1,6 +1,9 @@
 To Do:
 
 - check if GPU is being used properly
+	So after line 121 add a new line that says
+	`print ("critic side is on cuda: ", critic_loss.is_cuda)`
+	and after what's currently line 130 you add a new line `print ("actor side is on cuda: ", actor_loss.is_cuda)`
 
 - PPO!
 
